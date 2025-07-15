@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Options Heatmap Generator</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Microsoft YaHei', sans-serif;
+        }
+        .main-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            margin: 20px auto;
+            padding: 30px;
+        }
+        .card {
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        .card-header {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border-radius: 15px 15px 0 0 !important;
+            font-weight: bold;
+        }
+        .btn-primary {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            border: none;
+            border-radius: 25px;
+            padding: 10px 25px;
+            font-weight: bold;
+        }
+        .btn-primary:hover {
+            background: linear-gradient(45deg, #5a6fd8, #6a4190);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+        .btn-secondary {
+            background: linear-gradient(45deg, #f093fb, #f5576c);
+            border: none;
+            border-radius: 25px;
+            padding: 10px 25px;
+            font-weight: bold;
+        }
+        .btn-secondary:hover {
+            background: linear-gradient(45deg, #e085e7, #e54b5f);
+            transform: translateY(-2px);
+        }
+        .btn-success {
+            background: linear-gradient(45deg, #56ab2f, #a8e6cf);
+            border: none;
+            border-radius: 25px;
+            padding: 10px 25px;
+            font-weight: bold;
+        }
+        .btn-success:hover {
+            background: linear-gradient(45deg, #4a9a2a, #8fd4b8);
+            transform: translateY(-2px);
+        }
+        .form-control {
+            border-radius: 25px;
+            border: 2px solid #e9ecef;
+            padding: 12px 20px;
+        }
+        .form-control:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        }
+        .heatmap-container {
+            text-align: center;
+            margin: 20px 0;
+        }
+        .heatmap-image {
+            max-width: 100%;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+        .stats-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin: 10px 0;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        .spinner-border {
+            width: 3rem;
+            height: 3rem;
+        }
+        .alert {
+            border-radius: 15px;
+            border: none;
+        }
+        .table {
+            border-radius: 15px;
+            overflow: hidden;
+        }
+        .table th {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row justify-content-center">
+            <div class="col-lg-10">
+                <div class="main-container">
+                    <div class="text-center mb-4">
+                        <h1 class="display-4 fw-bold text-primary">
+                            <i class="fas fa-chart-area"></i> Options Heatmap Generator
+                        </h1>
+                        <p class="lead text-muted">Professional options data analysis and visualization tool</p>
+                        <p id="companyName" class="lead text-primary" style="font-size:1.3rem;font-weight:bold;"></p>
+                    </div>
+
+                    <!-- 数据加载区域 -->
+                    <div class="card">
+                        <div class="card-header">
+                            <i class="fas fa-database"></i> Data Loading
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <label for="customSymbol" class="form-label">Stock Symbol</label>
+                                    <input type="text" class="form-control" id="customSymbol" placeholder="e.g. AAPL, TSLA">
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="maxExpirations" class="form-label">Fetch Recent N Expirations (optional, leave blank for all)</label>
+                                    <input type="number" class="form-control" id="maxExpirations" min="1" placeholder="e.g. 4" value="4">
+                                </div>
+                            </div>
+                            <div class="text-center mt-3">
+                                <button class="btn btn-primary" onclick="loadData()">
+                                    <i class="fas fa-download"></i> Load Data
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 加载状态 -->
+                    <div class="loading" id="loadingData">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Loading data, please wait...</p>
+                    </div>
+
+                    <!-- 统计信息 -->
+                    <div id="statisticsSection" style="display: none;">
+                        <div class="card">
+                            <div class="card-header">
+                                <i class="fas fa-chart-bar"></i> Data Statistics
+                            </div>
+                            <div class="card-body">
+                                <div class="row" id="statsContent">
+                                    <!-- 统计信息将在这里显示 -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 热力图生成区域 -->
+                    <div id="heatmapSection" style="display: none;">
+                        <div class="card">
+                            <div class="card-header">
+                                <i class="fas fa-fire"></i> Heatmap Generation
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <button class="btn btn-primary w-100 mb-2" onclick="generateHeatmap('direction_oi')">
+                                            <i class="fas fa-chart-line"></i> Direction × Open Interest Heatmap
+                                        </button>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <button class="btn btn-secondary w-100 mb-2" onclick="generateHeatmap('volume')">
+                                            <i class="fas fa-chart-bar"></i> Volume Heatmap
+                                        </button>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <button class="btn btn-success w-100 mb-2" onclick="generateHeatmap('iv')">
+                                            <i class="fas fa-chart-area"></i> Implied Volatility Heatmap
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 热力图显示区域 -->
+                        <div class="card">
+                            <div class="card-header">
+                                <i class="fas fa-image"></i> Heatmap Preview
+                            </div>
+                            <div class="card-body">
+                                <div class="loading" id="loadingHeatmap">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Generating...</span>
+                                    </div>
+                                    <p class="mt-2">Generating heatmap, please wait...</p>
+                                </div>
+                                <div class="heatmap-container" id="heatmapContainer">
+                                    <!-- 热力图将在这里显示 -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 消息提示 -->
+                    <div id="messageContainer"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // 页面加载时获取可用股票代码
+        document.addEventListener('DOMContentLoaded', function() {
+            // loadAvailableSymbols(); // Removed as per edit hint
+        });
+
+        // 加载可用的股票代码
+        async function loadAvailableSymbols() {
+            try {
+                const response = await fetch('/api/available_symbols');
+                const data = await response.json();
+                
+                const select = document.getElementById('symbolSelect');
+                data.symbols.forEach(symbol => {
+                    const option = document.createElement('option');
+                    option.value = symbol;
+                    option.textContent = symbol;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                showMessage('Failed to fetch stock symbol list', 'danger');
+            }
+        }
+
+        // 加载数据
+        async function loadData() {
+            const symbol = document.getElementById('customSymbol').value.toUpperCase();
+            const maxExpirations = document.getElementById('maxExpirations').value;
+            
+            if (!symbol) {
+                showMessage('Please enter a stock symbol', 'warning');
+                return;
+            }
+            
+            showLoading('loadingData', true);
+            
+            try {
+                const response = await fetch('/api/load_data', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        symbol: symbol,
+                        max_expirations: maxExpirations || null
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    showMessage(data.message, 'success');
+                    displayStatistics(data.statistics, data.data_info);
+                    document.getElementById('heatmapSection').style.display = 'block';
+                    document.getElementById('companyName').textContent = data.company_name ? `Company: ${data.company_name}` : '';
+                } else {
+                    showMessage(data.message, 'danger');
+                    document.getElementById('companyName').textContent = '';
+                }
+            } catch (error) {
+                showMessage('Failed to load data: ' + error.message, 'danger');
+                document.getElementById('companyName').textContent = '';
+            } finally {
+                showLoading('loadingData', false);
+            }
+        }
+
+        // 生成热力图
+        async function generateHeatmap(chartType) {
+            showLoading('loadingHeatmap', true);
+            
+            try {
+                const response = await fetch('/api/generate_heatmap', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ chart_type: chartType })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayHeatmap(data.image, data.chart_type);
+                } else {
+                    showMessage(data.message, 'danger');
+                }
+            } catch (error) {
+                showMessage('Failed to generate heatmap: ' + error.message, 'danger');
+            } finally {
+                showLoading('loadingHeatmap', false);
+            }
+        }
+
+        // 显示统计信息
+        function displayStatistics(stats, dataInfo) {
+            const section = document.getElementById('statisticsSection');
+            
+            // 格式化数据时间戳
+            let dataTimeDisplay = '';
+            if (dataInfo && dataInfo.data_timestamp) {
+                try {
+                    const dt = new Date(dataInfo.data_timestamp);
+                    dataTimeDisplay = dt.toLocaleString('zh-CN', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit'
+                    });
+                } catch (e) {
+                    dataTimeDisplay = dataInfo.data_timestamp;
+                }
+            }
+            
+            section.innerHTML = `
+                <h4 class="mb-3">Data Statistics</h4>
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="card text-center">
+                            <div class="card-body">
+                                <h5 class="card-title">${stats.total_options}</h5>
+                                <p class="card-text">Total Options</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card text-center">
+                            <div class="card-body">
+                                <h5 class="card-title">${stats.call_options}</h5>
+                                <p class="card-text">Call Options</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card text-center">
+                            <div class="card-body">
+                                <h5 class="card-title">${stats.put_options}</h5>
+                                <p class="card-text">Put Options</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card text-center">
+                            <div class="card-body">
+                                <h5 class="card-title">${stats.expiration_dates}</h5>
+                                <p class="card-text">Expiration Dates</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                ${dataTimeDisplay ? `
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <div class="alert alert-info">
+                            <i class="fas fa-clock"></i> <strong>Data Timestamp:</strong> ${dataTimeDisplay}
+                        </div>
+                    </div>
+                </div>
+                ` : ''}
+                <div class="col-12 mt-3">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Expiration</th>
+                                    <th>Direction × OI</th>
+                                    <th>Volume</th>
+                                    <th>Open Interest</th>
+                                    <th>Avg IV (%)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${Object.entries(stats.date_statistics).map(([date, data]) => `
+                                    <tr>
+                                        <td>${date}</td>
+                                        <td>${data.direction_oi.toLocaleString()}</td>
+                                        <td>${data.volume.toLocaleString()}</td>
+                                        <td>${data.open_interest.toLocaleString()}</td>
+                                        <td>${data.implied_volatility ? data.implied_volatility.toFixed(2) : 'N/A'}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+            
+            section.style.display = 'block';
+        }
+
+        // 显示热力图
+        function displayHeatmap(imageBase64, chartType) {
+            const container = document.getElementById('heatmapContainer');
+            let title = '';
+            let fileName = '';
+            
+            switch(chartType) {
+                case 'direction_oi':
+                    title = 'Direction × Open Interest Heatmap';
+                    fileName = 'Direction Open Interest Heatmap.png';
+                    break;
+                case 'volume':
+                    title = 'Volume Heatmap';
+                    fileName = 'Volume Heatmap.png';
+                    break;
+                case 'iv':
+                    title = 'Implied Volatility Heatmap';
+                    fileName = 'Implied Volatility Heatmap.png';
+                    break;
+                default:
+                    title = 'Option Heatmap';
+                    fileName = 'Option Heatmap.png';
+            }
+            
+            container.innerHTML = `
+                <h4 class="mb-3">${title}</h4>
+                <img src="data:image/png;base64,${imageBase64}" class="heatmap-image" alt="Option Heatmap">
+                <div class="mt-3">
+                    <a href="data:image/png;base64,${imageBase64}" download="${fileName}" class="btn btn-primary">
+                        <i class="fas fa-download"></i> Download Image
+                    </a>
+                </div>
+            `;
+        }
+
+        // 显示加载状态
+        function showLoading(elementId, show) {
+            const element = document.getElementById(elementId);
+            element.style.display = show ? 'block' : 'none';
+        }
+
+        // 显示消息
+        function showMessage(message, type) {
+            const container = document.getElementById('messageContainer');
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+            alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            container.appendChild(alertDiv);
+            setTimeout(() => {
+                if (alertDiv.parentNode) {
+                    alertDiv.remove();
+                }
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
