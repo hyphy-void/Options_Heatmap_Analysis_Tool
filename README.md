@@ -19,11 +19,11 @@ A Flask-based web application for analyzing options data and generating heatmaps
 
 ### Panel
 
-![panel](F:\code\Options_Heatmap_Analysis_Tool\assets\panel.jpg)
+![panel](assets/panel.jpg)
 
 ### Heat map
 
-![image-20260225025807648](F:\code\Options_Heatmap_Analysis_Tool\assets\heatmap2.jpg)
+![image-20260225025807648](assets/heatmap2.jpg)
 
 ### Installation
 
