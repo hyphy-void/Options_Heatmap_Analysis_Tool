@@ -44,14 +44,6 @@ venv.bak/
 ehthumbs.db
 Thumbs.db
 
-# Project specific
-data/
-*.json
-*.png
-*.jpg
-*.jpeg
-*.gif
-*.ico
 
 # Logs
 *.log

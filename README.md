@@ -17,6 +17,14 @@ A Flask-based web application for analyzing options data and generating heatmaps
 - **Command Line Tools**: CLI support for batch data processing
 - **Data Persistence**: Local storage of options data for offline analysis
 
+### Panel
+
+![panel](F:\code\Options_Heatmap_Analysis_Tool\assets\panel.jpg)
+
+### Heat map
+
+![image-20260225025807648](F:\code\Options_Heatmap_Analysis_Tool\assets\heatmap2.jpg)
+
 ### Installation
 
 1. **Clone the repository**
