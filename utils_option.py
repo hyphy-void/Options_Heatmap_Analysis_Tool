@@ -2,12 +2,10 @@
 """
 期权数据与热力图工具函数合集
 """
-import yfinance as yf
 import json
 import time
 from datetime import datetime
 import pandas as pd
-import random
 import os
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -16,150 +14,105 @@ import warnings
 warnings.filterwarnings('ignore')
 import sys
 
+from finnhub_provider import OptionsDataError, fetch_option_snapshot
+
 plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'DejaVu Sans']
 plt.rcParams['axes.unicode_minus'] = False
 
-# ================= 数据抓取与保存 =================
+DATA_DIR = os.path.join(os.path.dirname(__file__), 'data')
 
-def scrape_options_data(symbol="AAPL", max_retries=5, multiple_expirations=False, max_expiration_dates=3):
-    """爬取期权数据并保存到data目录"""
-    global List_OptionsAll, CurCountShow, TotalCountShow
-    List_OptionsAll = []
-    TotalCountShow = 0
-    CurCountShow = 0
-    data_dir = os.path.join(os.path.dirname(__file__), 'data')
-    if not os.path.exists(data_dir):
-        os.makedirs(data_dir)
-    scrape_start_time = datetime.now()
-    print(f"开始爬取 {symbol} 期权数据...")
-    print(f"爬取开始时间: {scrape_start_time.strftime('%Y-%m-%d %H:%M:%S')}")
+# ================= 数据获取与保存 =================
+
+def get_data_dir():
+    os.makedirs(DATA_DIR, exist_ok=True)
+    return DATA_DIR
+
+
+def fetch_options_data(
+    symbol="AAPL",
+    max_retries=5,
+    multiple_expirations=False,
+    max_expiration_dates=3,
+    client=None,
+):
+    """从 Finnhub 获取期权数据并保存到 data 目录。"""
+    data_dir = get_data_dir()
+    normalized_symbol = symbol.upper()
+    fetch_start_time = datetime.now()
+    print(f"开始获取 {normalized_symbol} 期权数据...")
+    print(f"获取开始时间: {fetch_start_time.strftime('%Y-%m-%d %H:%M:%S')}")
     print("----------------------------------------------------------------------------------------------------")
     for attempt in range(max_retries):
         try:
             print(f"尝试第 {attempt + 1} 次获取数据...")
-            List_OptionsAll = []
-            CurCountShow = 0
-            if attempt > 0:
-                delay = random.uniform(5 + attempt * 2, 10 + attempt * 3)
-                print(f"等待 {delay:.1f} 秒后重试...")
-                time.sleep(delay)
-            stock = yf.Ticker(symbol)
-            info = stock.info
-            current_price = info.get('regularMarketPrice', 'N/A')
-            # 获取公司名称
-            company_name = info.get('shortName') or info.get('longName') or symbol
-            print(f"股票代码: {symbol}")
-            print(f"公司名称: {company_name}")
-            print(f"当前股价: ${current_price}")
+            snapshot = fetch_option_snapshot(
+                symbol=normalized_symbol,
+                max_expiration_dates=max_expiration_dates,
+                multiple_expirations=multiple_expirations,
+                client=client,
+            )
+            options_data = snapshot["options_data"]
+            total_calls = len([item for item in options_data if item["type"] == "Call"])
+            total_puts = len([item for item in options_data if item["type"] == "Put"])
+
+            print(f"股票代码: {normalized_symbol}")
+            print(f"公司名称: {snapshot['company_name']}")
+            print(f"数据源: Finnhub")
+            print(f"当前股价: ${snapshot['current_price']}")
+            print(f"可用的到期日期: {', '.join(snapshot['expiration_dates'])}")
             print(f"市场时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
             print("----------------------------------------------------------------------------------------------------")
-            expiration_dates = stock.options
-            if not expiration_dates:
-                print("没有找到期权数据")
-                return
-            print(f"可用的期权到期日期数量: {len(expiration_dates)}")
-            if multiple_expirations and len(expiration_dates) > 1:
-                if max_expiration_dates == 0 or max_expiration_dates >= len(expiration_dates):
-                    dates_to_fetch = expiration_dates
-                    print(f"将获取所有到期日期的数据: 共{len(dates_to_fetch)}个")
-                else:
-                    dates_to_fetch = expiration_dates[:max_expiration_dates]
-                    print(f"将获取前{max_expiration_dates}个到期日期的数据: {dates_to_fetch}")
-            else:
-                dates_to_fetch = [expiration_dates[0]]
-                print(f"最近的到期日期: {expiration_dates[0]}")
-            print("----------------------------------------------------------------------------------------------------")
-            total_calls = 0
-            total_puts = 0
-            for date_idx, expiration_date in enumerate(dates_to_fetch):
-                print(f"正在获取 {expiration_date} 到期的期权数据...")
-                print("正在获取期权链数据，请稍候...")
-                options = stock.option_chain(expiration_date)
-                calls = options.calls
-                print(f"\n{expiration_date} 看涨期权 (Calls) - 共 {len(calls)} 个:")
-                print("----------------------------------------------------------------------------------------------------")
-                for i, call in calls.iterrows():
-                    contract_name = f"{symbol}{expiration_date.replace('-', '')}C{int(call['strike']*1000):08d}"
-                    option_info = {
-                        'type': 'Call',
-                        'contract_name': contract_name,
-                        'expiration_date': expiration_date,
-                        'strike_price': call['strike'],
-                        'last_price': call['lastPrice'],
-                        'bid': call['bid'],
-                        'ask': call['ask'],
-                        'volume': call['volume'],
-                        'open_interest': call['openInterest'],
-                        'implied_volatility': call['impliedVolatility']
-                    }
-                    List_OptionsAll.append(option_info)
-                    total_calls += 1
-                puts = options.puts
-                print(f"\n{expiration_date} 看跌期权 (Puts) - 共 {len(puts)} 个:")
-                print("----------------------------------------------------------------------------------------------------")
-                for i, put in puts.iterrows():
-                    contract_name = f"{symbol}{expiration_date.replace('-', '')}P{int(put['strike']*1000):08d}"
-                    option_info = {
-                        'type': 'Put',
-                        'contract_name': contract_name,
-                        'expiration_date': expiration_date,
-                        'strike_price': put['strike'],
-                        'last_price': put['lastPrice'],
-                        'bid': put['bid'],
-                        'ask': put['ask'],
-                        'volume': put['volume'],
-                        'open_interest': put['openInterest'],
-                        'implied_volatility': put['impliedVolatility']
-                    }
-                    List_OptionsAll.append(option_info)
-                    total_puts += 1
-                if date_idx < len(dates_to_fetch) - 1:
-                    print("等待2秒后获取下一个到期日期的数据...")
-                    time.sleep(2)
-            print(f"\n总共获取到 {len(List_OptionsAll)} 个期权合约的数据")
+
+            print(f"\n总共获取到 {len(options_data)} 个期权合约的数据")
             print(f"看涨期权: {total_calls} 个")
             print(f"看跌期权: {total_puts} 个")
-            if len(List_OptionsAll) < 50:
-                print(f"警告: 获取的期权数量较少({len(List_OptionsAll)})，可能数据不完整")
-                if attempt < max_retries - 1:
-                    print("将进行重试以获取更完整的数据...")
-                    continue
-            scrape_end_time = datetime.now()
-            scrape_duration = scrape_end_time - scrape_start_time
-            json_path = os.path.join(data_dir, f'{symbol}_options_data.json')
+            fetch_end_time = datetime.now()
+            fetch_duration = fetch_end_time - fetch_start_time
+            payload = {
+                'symbol': normalized_symbol,
+                'company_name': snapshot['company_name'],
+                'current_price': snapshot['current_price'],
+                'expiration_dates': snapshot['expiration_dates'],
+                'fetch_start_time': fetch_start_time.isoformat(),
+                'fetch_end_time': fetch_end_time.isoformat(),
+                'fetch_duration_seconds': fetch_duration.total_seconds(),
+                'data_timestamp': fetch_end_time.isoformat(),
+                'total_options': len(options_data),
+                'calls_count': total_calls,
+                'puts_count': total_puts,
+                'data_source': snapshot['data_source'],
+                'implied_volatility_unit': snapshot['implied_volatility_unit'],
+                'options_data': options_data,
+            }
+            json_path = os.path.join(data_dir, f'{normalized_symbol}_options_data.json')
             with open(json_path, 'w', encoding='utf-8') as f:
-                json.dump({
-                    'symbol': symbol,
-                    'company_name': company_name,
-                    'current_price': current_price,
-                    'expiration_dates': dates_to_fetch,
-                    'scrape_start_time': scrape_start_time.isoformat(),
-                    'scrape_end_time': scrape_end_time.isoformat(),
-                    'scrape_duration_seconds': scrape_duration.total_seconds(),
-                    'data_timestamp': scrape_end_time.isoformat(),
-                    'total_options': len(List_OptionsAll),
-                    'calls_count': total_calls,
-                    'puts_count': total_puts,
-                    'options_data': List_OptionsAll
-                }, f, ensure_ascii=False, indent=2)
+                json.dump(payload, f, ensure_ascii=False, indent=2)
             print(f"数据已保存到 {json_path}")
-            print(f"爬取完成时间: {scrape_end_time.strftime('%Y-%m-%d %H:%M:%S')}")
-            print(f"总耗时: {scrape_duration.total_seconds():.2f} 秒")
-            generate_csv_data(symbol, data_dir)
-            break
+            print(f"获取完成时间: {fetch_end_time.strftime('%Y-%m-%d %H:%M:%S')}")
+            print(f"总耗时: {fetch_duration.total_seconds():.2f} 秒")
+            generate_csv_data(normalized_symbol, options_data, data_dir)
+            return payload
+        except OptionsDataError:
+            raise
         except Exception as e:
             print(f"第 {attempt + 1} 次尝试失败: {e}")
             if attempt < max_retries - 1:
+                delay = min(2 * (attempt + 1), 5)
+                print(f"等待 {delay} 秒后重试...")
+                time.sleep(delay)
                 print("准备重试...")
             else:
-                print("所有重试都失败了，未能获取真实数据。请稍后再试或更换网络环境。")
+                raise OptionsDataError(
+                    f"Failed to fetch options data for {normalized_symbol}: {e}"
+                ) from e
 
-def generate_csv_data(symbol, data_dir):
-    if not List_OptionsAll:
+
+def generate_csv_data(symbol, options_data, data_dir):
+    if not options_data:
         print("没有数据可保存")
         return
     csv_content = "期权类型,合约名称,到期日期,执行价格,最新价格,买价,卖价,成交量,未平仓合约,隐含波动率\n"
-    for option in List_OptionsAll:
+    for option in options_data:
         csv_content += f"{option['type']},{option['contract_name']},{option['expiration_date']},{option['strike_price']},{option['last_price']},{option['bid']},{option['ask']},{option['volume']},{option['open_interest']},{option['implied_volatility']}\n"
     csv_path = os.path.join(data_dir, f'{symbol}_options_data.csv')
     with open(csv_path, 'w', encoding='utf-8') as f:
@@ -168,14 +121,14 @@ def generate_csv_data(symbol, data_dir):
 
 def load_options_data(symbol="AAPL"):
     """加载期权数据"""
-    data_dir = os.path.join(os.path.dirname(__file__), 'data')
+    data_dir = get_data_dir()
     json_path = os.path.join(data_dir, f'{symbol}_options_data.json')
     try:
         with open(json_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
         return data
     except FileNotFoundError:
-        print(f"未找到 {json_path} 文件，请先运行期权数据爬虫")
+        print(f"未找到 {json_path} 文件，请先运行期权数据获取命令")
         return None
 
 # ================= 数据处理与热力图 =================
@@ -186,11 +139,19 @@ def create_heatmap_data(data):
         print("数据格式错误")
         return None
     df = pd.DataFrame(data['options_data'])
+    if df.empty:
+        print("没有可用的期权数据")
+        return None
+    numeric_columns = ['strike_price', 'last_price', 'bid', 'ask', 'volume', 'open_interest', 'implied_volatility']
+    for column in numeric_columns:
+        if column in df.columns:
+            df[column] = pd.to_numeric(df[column], errors='coerce')
     df['direction'] = df['type'].map({'Call': 1, 'Put': -1})
     df['direction_oi'] = df['direction'] * df['open_interest']
     df['direction_oi'] = df['direction_oi'].fillna(0)
     if 'implied_volatility' in df.columns:
-        if df['implied_volatility'].max() <= 1:
+        iv_unit = data.get('implied_volatility_unit')
+        if iv_unit != 'percent' and df['implied_volatility'].max() <= 1:
             df['implied_volatility'] = df['implied_volatility'] * 100
         df['implied_volatility'] = df['implied_volatility'].fillna(0)
     else:
@@ -380,15 +341,17 @@ def print_summary_statistics(df, symbol="AAPL"):
 
 def main():
     if len(sys.argv) > 1 and sys.argv[1] == 'fetch':
-        # 极简抓取模式：python utils_option.py fetch TSLA 3
+        # 极简获取模式：uv run python utils_option.py fetch TSLA 3
         if len(sys.argv) < 3:
-            print("用法: python utils_option.py fetch 股票代码 [最多到期日数]")
+            print("用法: uv run python utils_option.py fetch 股票代码 [最多到期日数]")
             return
         symbol = sys.argv[2].upper()
         max_exp = int(sys.argv[3]) if len(sys.argv) > 3 else None
-        # 只抓取数据，不做分析和画图
-        scrape_options_data(symbol, max_expiration_dates=max_exp, multiple_expirations=True)
-        print(f"已抓取 {symbol} 的期权数据到 data 目录")
+        try:
+            fetch_options_data(symbol, max_expiration_dates=max_exp, multiple_expirations=True)
+            print(f"已获取 {symbol} 的期权数据到 data 目录")
+        except OptionsDataError as exc:
+            print(f"获取失败: {exc}")
         return
     # 默认分析和画图
     symbol = "AAPL"

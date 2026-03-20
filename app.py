@@ -7,8 +7,7 @@
 import matplotlib
 matplotlib.use('Agg')
 
-from flask import Flask, render_template, request, jsonify, send_file
-import json
+from flask import Flask, render_template, request, jsonify
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -18,17 +17,12 @@ import os
 import io
 import base64
 import warnings
-import sys
 warnings.filterwarnings('ignore')
 
+from finnhub_provider import OptionsDataError
 from utils_option import (
-    scrape_options_data,
-    load_options_data,
+    fetch_options_data,
     create_heatmap_data,
-    generate_heatmap,
-    generate_volatility_heatmap,
-    generate_enhanced_heatmap,
-    print_summary_statistics
 )
 
 # 设置中文字体
@@ -41,39 +35,21 @@ app = Flask(__name__)
 current_data = None
 current_symbol = None
 
-def load_options_data_web(symbol="AAPL", max_expirations=None):
-    """每次都强制抓取最新期权数据，覆盖旧数据"""
+def refresh_options_data_web(symbol="AAPL", max_expirations=None):
+    """每次都强制刷新最新期权数据，覆盖旧数据"""
     try:
-        # 修改为从data目录读取
-        file_path = os.path.join(os.path.dirname(__file__), 'data', f'{symbol}_options_data.json')
-        # 直接调用utils_option中的函数抓取数据
-        print(f"强制抓取 {symbol} 的最新期权数据……")
-        
-        # 调用utils_option中的scrape_options_data函数
-        from utils_option import scrape_options_data
-        scrape_options_data(
-            symbol=symbol, 
-            max_retries=3, 
-            multiple_expirations=True, 
-            max_expiration_dates=max_expirations if max_expirations else 4
+        print(f"正在刷新 {symbol} 的最新期权数据……")
+        return fetch_options_data(
+            symbol=symbol,
+            max_retries=3,
+            multiple_expirations=True,
+            max_expiration_dates=max_expirations if max_expirations is not None else 4,
         )
-        
-        if not os.path.exists(file_path):
-            print(f"抓取失败，未生成 {file_path}")
-            return None
-        try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-        except json.JSONDecodeError as e:
-            print(f"JSON解析失败: {e}，文件内容可能不是有效数据，已删除该文件")
-            os.remove(file_path)
-            return None
-        if isinstance(data, list):
-            data = {'options_data': data}
-        return data
+    except OptionsDataError:
+        raise
     except Exception as e:
         print(f"加载数据失败: {e}")
-        return None
+        raise OptionsDataError(f"Failed to load option data for {symbol}: {e}") from e
 
 def generate_heatmap_image(df, symbol="AAPL", chart_type="direction_oi"):
     """Generate heatmap and return base64 image (English labels, with current price line and data timestamp)"""
@@ -221,7 +197,7 @@ def index():
 def api_load_data():
     """API: 加载期权数据"""
     global current_data, current_symbol
-    data = request.get_json()
+    data = request.get_json() or {}
     symbol = data.get('symbol', 'AAPL').upper()
     max_expirations = data.get('max_expirations')
     if max_expirations is not None:
@@ -229,10 +205,10 @@ def api_load_data():
             max_expirations = int(max_expirations)
         except Exception:
             max_expirations = None
-    # 加载数据
-    raw_data = load_options_data_web(symbol, max_expirations)
-    if raw_data is None:
-        return jsonify({'success': False, 'message': f'No option data file found for {symbol}'})
+    try:
+        raw_data = refresh_options_data_web(symbol, max_expirations)
+    except OptionsDataError as exc:
+        return jsonify({'success': False, 'message': str(exc)})
     # 处理数据
     df = create_heatmap_data(raw_data)
     if df is None:
@@ -248,9 +224,9 @@ def api_load_data():
     # 获取数据时间戳信息
     data_info = {
         'data_timestamp': raw_data.get('data_timestamp'),
-        'scrape_start_time': raw_data.get('scrape_start_time'),
-        'scrape_end_time': raw_data.get('scrape_end_time'),
-        'scrape_duration_seconds': raw_data.get('scrape_duration_seconds')
+        'fetch_start_time': raw_data.get('fetch_start_time'),
+        'fetch_end_time': raw_data.get('fetch_end_time'),
+        'fetch_duration_seconds': raw_data.get('fetch_duration_seconds')
     }
     
     return jsonify({
@@ -310,7 +286,11 @@ if __name__ == '__main__':
     # 创建templates目录
     os.makedirs('templates', exist_ok=True)
     os.makedirs('static', exist_ok=True)
-    
+
+    host = os.getenv('HOST', '0.0.0.0')
+    port = int(os.getenv('PORT', '5000'))
+    debug = os.getenv('FLASK_DEBUG', 'true').lower() in {'1', 'true', 'yes', 'on'}
+
     print("期权热力图Web服务启动中...")
-    print("访问地址: http://localhost:5000")
-    app.run(host='0.0.0.0', port=5000, debug=True) 
+    print(f"访问地址: http://localhost:{port}")
+    app.run(host=host, port=port, debug=debug)

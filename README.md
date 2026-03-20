@@ -1,239 +1,263 @@
-# 期权热力图分析工具 / Options Heatmap Analysis Tool
+# Options Heatmap Analysis Tool
 
-[English](#english) | [中文](#chinese)
+[![Python](https://img.shields.io/badge/Python-3.9-blue.svg)](./.python-version)
+[![Flask](https://img.shields.io/badge/Flask-2.3-black.svg)](https://flask.palletsprojects.com/)
+[![uv](https://img.shields.io/badge/uv-managed-6f42c1.svg)](https://docs.astral.sh/uv/)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
 
-## English
+基于 Flask 的期权热力图分析工具，使用 [Finnhub](https://finnhub.io/docs/api) 作为数据源，支持按到期日和执行价展示期权链的持仓、成交量和隐含波动率分布。
 
-### Overview
+中文优先阅读，英文说明见文末。
 
-A Flask-based web application for analyzing options data and generating heatmaps. This tool helps traders and investors visualize options market sentiment by displaying open interest and volume data in an interactive heatmap format.
+## 目录
 
-### Features
+- [项目亮点](#项目亮点)
+- [界面预览](#界面预览)
+- [快速开始](#快速开始)
+- [配置说明](#配置说明)
+- [使用方式](#使用方式)
+- [API 接口](#api-接口)
+- [常见问题](#常见问题)
+- [开发与测试](#开发与测试)
+- [项目结构](#项目结构)
+- [English](#english)
 
-- **Real-time Data Fetching**: Automatically fetches options data from Yahoo Finance
-- **Interactive Heatmaps**: Visualize options data with strike price vs expiration date
-- **Multiple Metrics**: Display Open Interest, Volume, and other key metrics
-- **Web Interface**: User-friendly web interface for data analysis
-- **Command Line Tools**: CLI support for batch data processing
-- **Data Persistence**: Local storage of options data for offline analysis
+## 项目亮点
 
-### Panel
+- 使用官方 [`finnhub-python`](https://github.com/Finnhub-Stock-API/finnhub-python) 客户端获取期权链、现价和公司资料
+- 基于本地标准化快照生成热力图，避免前端直接耦合第三方 API
+- 支持三种图表维度：
+  - `Direction × Open Interest`
+  - `Volume`
+  - `Implied Volatility`
+- 默认使用 `uv` 管理环境和依赖
+- 保持简单直接的 Flask Web 界面，适合快速分析和二次开发
+- 失败时返回明确错误，不静默回退到其他数据源
 
-![panel](assets/panel.jpg)
+## 界面预览
 
-### Heat map
+### 主界面
 
-![image-20260225025807648](assets/heatmap2.jpg)
+![Panel](assets/panel.jpg)
 
-### Installation
+### 热力图示例
 
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd option
-   ```
+![Heatmap](assets/heatmap2.jpg)
 
-2. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
+## 快速开始
 
-3. **Create data directory**
-   ```bash
-   mkdir data
-   ```
+### 1. 克隆项目
 
-### Usage
-
-#### Web Interface
-
-1. **Start the Flask application**
-   ```bash
-   python app.py
-   ```
-
-2. **Open your browser and navigate to**
-   ```
-   http://localhost:5000
-   ```
-
-3. **Select a stock symbol and view the options heatmap**
-
-#### Command Line Interface
-
-**Fetch options data for a specific symbol:**
 ```bash
-python utils_option.py --symbol AAPL --mode fetch
+git clone <repository-url>
+cd Options_Heatmap_Analysis_Tool
 ```
 
-**Generate heatmap for a specific symbol:**
+### 2. 配置 API Key
+
 ```bash
-python utils_option.py --symbol AAPL --mode heatmap
+export FINNHUB_API_KEY="your_finnhub_key"
 ```
 
-**Complete analysis (fetch + heatmap):**
+### 3. 安装依赖
+
 ```bash
-python utils_option.py --symbol AAPL --mode full
+uv sync
 ```
 
-### Project Structure
+### 4. 启动服务
 
-```
-option/
-├── app.py                 # Flask web application
-├── utils_option.py        # Core utilities for data fetching and heatmap generation
-├── templates/             # HTML templates
-│   └── index.html
-├── static/                # Static assets
-├── data/                  # Options data storage
-└── README.md             # This file
+```bash
+uv run python app.py
 ```
 
-### API Endpoints
+如果 `5000` 端口已被占用：
 
-- `GET /`: Main page with options heatmap interface
-- `GET /api/available_symbols`: Get list of available stock symbols
-- `GET /api/options_data/<symbol>`: Get options data for a specific symbol
-- `GET /api/heatmap/<symbol>`: Generate and return heatmap for a symbol
+```bash
+PORT=5001 uv run python app.py
+```
 
-### Configuration
+启动后访问：
 
-The application uses default settings for Yahoo Finance data fetching. You can modify the following parameters in `utils_option.py`:
+- 默认地址：[http://localhost:5000](http://localhost:5000)
+- 自定义端口示例：[http://localhost:5001](http://localhost:5001)
 
-- `num_expirations`: Number of expiration dates to fetch (default: 4)
-- `data_dir`: Directory for storing options data (default: "data")
+## 配置说明
 
-### Dependencies
+### 必需环境变量
 
-- Flask: Web framework
-- pandas: Data manipulation
-- plotly: Interactive plotting
-- requests: HTTP requests
-- yfinance: Yahoo Finance data access
+| 变量名 | 必需 | 说明 |
+| --- | --- | --- |
+| `FINNHUB_API_KEY` | 是 | Finnhub API Key |
 
-### Contributing
+### 可选环境变量
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
+| 变量名 | 默认值 | 说明 |
+| --- | --- | --- |
+| `PORT` | `5000` | Flask 启动端口 |
+| `HOST` | `0.0.0.0` | Flask 监听地址 |
+| `FLASK_DEBUG` | `true` | 是否启用调试模式 |
 
-### License
+## 使用方式
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+### Web 界面
+
+1. 启动 Flask 服务
+2. 打开浏览器进入首页
+3. 输入股票代码，例如 `AAPL`、`TSLA`
+4. 选择抓取最近 N 个到期日的数据
+5. 点击加载数据并生成热力图
+
+### 命令行获取数据
+
+获取指定股票最近几个到期日的期权数据：
+
+```bash
+uv run python utils_option.py fetch AAPL 4
+```
+
+执行后会在 `data/` 目录生成：
+
+- `{SYMBOL}_options_data.json`
+- `{SYMBOL}_options_data.csv`
+
+## API 接口
+
+### `GET /`
+
+返回主页面。
+
+### `POST /api/load_data`
+
+获取、标准化并加载指定股票的期权数据。
+
+请求示例：
+
+```json
+{
+  "symbol": "AAPL",
+  "max_expirations": 4
+}
+```
+
+### `POST /api/generate_heatmap`
+
+基于当前已加载数据生成热力图。
+
+支持的 `chart_type`：
+
+- `direction_oi`
+- `volume`
+- `iv`
+
+### `GET /api/available_symbols`
+
+返回本地缓存过的股票代码列表。
+
+### `GET /health`
+
+健康检查接口。
+
+## 常见问题
+
+### 1. `Port 5000 is in use`
+
+本机已有其他程序占用了 `5000` 端口。可直接切换端口启动：
+
+```bash
+PORT=5001 uv run python app.py
+```
+
+### 2. `FINNHUB_API_KEY is not configured`
+
+说明当前 shell 会话没有配置 API Key。请先执行：
+
+```bash
+export FINNHUB_API_KEY="your_finnhub_key"
+```
+
+### 3. `Finnhub option-chain endpoint forbidden ...`
+
+如果：
+
+- `quote('AAPL')` 可用
+- `company_profile2('AAPL')` 可用
+- `option_chain('AAPL')` 返回 `403`
+
+通常表示当前 Finnhub Key 没有 `option-chain` endpoint 的访问权限，属于 Finnhub 套餐或 entitlement 限制，而不是本项目仍在使用旧数据链路。
+
+### 4. 页面提示 Finnhub HTML 错误页或网络错误
+
+常见原因：
+
+- Finnhub 端点临时异常
+- 本机 DNS / 网络访问异常
+- API Key 权限不足
+
+## 开发与测试
+
+### 运行测试
+
+```bash
+uv run pytest -q
+```
+
+### 代码约定
+
+- 统一使用 `uv` 管理依赖
+- 期权数据通过 `finnhub_provider.py` 获取并标准化
+- Web 层尽量保持轻量，业务逻辑放在工具层
+- 本地缓存用于热力图生成和调试分析
+
+## 项目结构
+
+```text
+Options_Heatmap_Analysis_Tool/
+├── app.py                  # Flask Web 服务
+├── finnhub_provider.py     # Finnhub 数据获取与错误处理
+├── utils_option.py         # 数据标准化、落盘、热力图处理
+├── templates/
+│   └── index.html          # 前端页面
+├── assets/                 # README 预览图
+├── tests/                  # 测试用例
+├── pyproject.toml          # 项目依赖定义
+├── uv.lock                 # uv 锁文件
+└── LICENSE
+```
+
+## License
+
+本项目基于 [MIT License](./LICENSE) 开源。
 
 ---
 
-## Chinese
+## English
 
-### 项目概述
+This is a Flask-based options heatmap tool powered by [Finnhub](https://finnhub.io/docs/api) and managed with `uv`.
 
-基于Flask的期权数据分析和热力图生成工具。该工具帮助交易者和投资者通过交互式热力图格式显示未平仓量和成交量数据，可视化期权市场情绪。
+### Quick Start
 
-### 主要功能
-
-- **实时数据获取**: 自动从雅虎财经获取期权数据
-- **交互式热力图**: 以执行价格vs到期日期的形式可视化期权数据
-- **多种指标**: 显示未平仓量、成交量和其他关键指标
-- **Web界面**: 用户友好的数据分析Web界面
-- **命令行工具**: 支持批量数据处理的CLI工具
-- **数据持久化**: 本地存储期权数据，支持离线分析
-
-### 安装说明
-
-1. **克隆仓库**
-   ```bash
-   git clone <repository-url>
-   cd option
-   ```
-
-2. **安装依赖**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. **创建数据目录**
-   ```bash
-   mkdir data
-   ```
-
-### 使用方法
-
-#### Web界面
-
-1. **启动Flask应用**
-   ```bash
-   python app.py
-   ```
-
-2. **在浏览器中打开**
-   ```
-   http://localhost:5000
-   ```
-
-3. **选择股票代码并查看期权热力图**
-
-#### 命令行界面
-
-**获取特定股票的期权数据:**
 ```bash
-python utils_option.py --symbol AAPL --mode fetch
+git clone <repository-url>
+cd Options_Heatmap_Analysis_Tool
+export FINNHUB_API_KEY="your_finnhub_key"
+uv sync
+uv run python app.py
 ```
 
-**为特定股票生成热力图:**
+If port `5000` is already occupied:
+
 ```bash
-python utils_option.py --symbol AAPL --mode heatmap
+PORT=5001 uv run python app.py
 ```
 
-**完整分析（获取数据+生成热力图）:**
-```bash
-python utils_option.py --symbol AAPL --mode full
-```
+### Core Capabilities
 
-### 项目结构
+- Fetches option chains, quotes, and company profiles from Finnhub
+- Normalizes snapshots into local JSON / CSV files
+- Generates heatmaps for direction x open interest, volume, and implied volatility
+- Exposes a small Flask API for loading data and rendering charts
 
-```
-option/
-├── app.py                 # Flask Web应用
-├── utils_option.py        # 数据获取和热力图生成的核心工具
-├── templates/             # HTML模板
-│   └── index.html
-├── static/                # 静态资源
-├── data/                  # 期权数据存储
-└── README.md             # 本文件
-```
+### Important Note
 
-### API接口
-
-- `GET /`: 期权热力图界面主页面
-- `GET /api/available_symbols`: 获取可用股票代码列表
-- `GET /api/options_data/<symbol>`: 获取特定股票的期权数据
-- `GET /api/heatmap/<symbol>`: 生成并返回股票的热力图
-
-### 配置说明
-
-应用程序使用雅虎财经数据获取的默认设置。您可以在 `utils_option.py` 中修改以下参数：
-
-- `num_expirations`: 获取的到期日期数量（默认: 4）
-- `data_dir`: 期权数据存储目录（默认: "data"）
-
-### 依赖包
-
-- Flask: Web框架
-- pandas: 数据处理
-- plotly: 交互式绘图
-- requests: HTTP请求
-- yfinance: 雅虎财经数据访问
-
-### 贡献指南
-
-1. Fork 本仓库
-2. 创建功能分支
-3. 进行您的修改
-4. 如适用，添加测试
-5. 提交 Pull Request
-
-### 许可证
-
-本项目采用 MIT 许可证 - 详情请参阅 LICENSE 文件。 
+If `quote('AAPL')` and `company_profile2('AAPL')` work but `option_chain('AAPL')` returns `403`, your Finnhub key likely does not include access to the `option-chain` endpoint.
