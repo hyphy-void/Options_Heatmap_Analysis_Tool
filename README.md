@@ -1,13 +1,13 @@
 # Options Heatmap Analysis Tool
 
+语言 / Language: 简体中文 | [English](./README_EN.md)
+
 [![Python](https://img.shields.io/badge/Python-3.9-blue.svg)](./.python-version)
 [![Flask](https://img.shields.io/badge/Flask-2.3-black.svg)](https://flask.palletsprojects.com/)
 [![uv](https://img.shields.io/badge/uv-managed-6f42c1.svg)](https://docs.astral.sh/uv/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
 
-基于 Flask 的期权热力图分析工具，使用 [Finnhub](https://finnhub.io/docs/api) 作为数据源，支持按到期日和执行价展示期权链的持仓、成交量和隐含波动率分布。
-
-中文优先阅读，英文说明见文末。
+一个面向期权链研究与可视化展示的轻量级 Web 应用。项目基于 [Flask](https://flask.palletsprojects.com/) 构建，以 [Finnhub](https://finnhub.io/docs/api) 作为数据源，将期权链抓取、标准化快照、统计汇总与热力图渲染串成一条完整分析链路，适合作为量化分析 Demo、作品集项目和二次开发起点。
 
 ## 目录
 
@@ -20,19 +20,20 @@
 - [常见问题](#常见问题)
 - [开发与测试](#开发与测试)
 - [项目结构](#项目结构)
-- [English](#english)
 
 ## 项目亮点
 
-- 使用官方 [`finnhub-python`](https://github.com/Finnhub-Stock-API/finnhub-python) 客户端获取期权链、现价和公司资料
-- 基于本地标准化快照生成热力图，避免前端直接耦合第三方 API
-- 支持三种图表维度：
+- 端到端打通期权数据获取、标准化落盘、汇总统计与热力图渲染，开箱即可演示完整分析流程
+- 使用官方 [`finnhub-python`](https://github.com/Finnhub-Stock-API/finnhub-python) 客户端获取期权链、现价和公司资料，数据来源清晰可追溯
+- 支持三种核心视图：
   - `Direction × Open Interest`
   - `Volume`
   - `Implied Volatility`
-- 默认使用 `uv` 管理环境和依赖
-- 保持简单直接的 Flask Web 界面，适合快速分析和二次开发
-- 失败时返回明确错误，不静默回退到其他数据源
+- 图表内置当前价格参考线与数据时间戳，更适合快速观察期权结构和近端到期分布
+- 自动生成本地 JSON / CSV 快照，便于调试、复盘和后续分析
+- 提供轻量 Flask Web 界面与 API，适合快速展示，也方便继续扩展
+- 对权限不足、网络异常、空数据等情况返回明确错误，避免静默失败
+- 测试覆盖数据抓取、标准化、文件落盘、API 路径和热力图生成等核心流程
 
 ## 界面预览
 
@@ -49,7 +50,7 @@
 ### 1. 克隆项目
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/hyphy-void/Options_Heatmap_Analysis_Tool
 cd Options_Heatmap_Analysis_Tool
 ```
 
@@ -107,6 +108,7 @@ PORT=5001 uv run python app.py
 3. 输入股票代码，例如 `AAPL`、`TSLA`
 4. 选择抓取最近 N 个到期日的数据
 5. 点击加载数据并生成热力图
+6. 在三类热力图之间切换查看不同维度的市场分布
 
 ### 命令行获取数据
 
@@ -207,7 +209,7 @@ uv run pytest -q
 - 统一使用 `uv` 管理依赖
 - 期权数据通过 `finnhub_provider.py` 获取并标准化
 - Web 层尽量保持轻量，业务逻辑放在工具层
-- 本地缓存用于热力图生成和调试分析
+- 本地快照既用于热力图生成，也方便问题排查和结果复盘
 
 ## 项目结构
 
@@ -228,36 +230,3 @@ Options_Heatmap_Analysis_Tool/
 ## License
 
 本项目基于 [MIT License](./LICENSE) 开源。
-
----
-
-## English
-
-This is a Flask-based options heatmap tool powered by [Finnhub](https://finnhub.io/docs/api) and managed with `uv`.
-
-### Quick Start
-
-```bash
-git clone <repository-url>
-cd Options_Heatmap_Analysis_Tool
-export FINNHUB_API_KEY="your_finnhub_key"
-uv sync
-uv run python app.py
-```
-
-If port `5000` is already occupied:
-
-```bash
-PORT=5001 uv run python app.py
-```
-
-### Core Capabilities
-
-- Fetches option chains, quotes, and company profiles from Finnhub
-- Normalizes snapshots into local JSON / CSV files
-- Generates heatmaps for direction x open interest, volume, and implied volatility
-- Exposes a small Flask API for loading data and rendering charts
-
-### Important Note
-
-If `quote('AAPL')` and `company_profile2('AAPL')` work but `option_chain('AAPL')` returns `403`, your Finnhub key likely does not include access to the `option-chain` endpoint.
