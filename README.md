@@ -1,15 +1,13 @@
 # Options Heatmap Analysis Tool
 
-[English](#english) | [中文](#目录)
-
 [![Python](https://img.shields.io/badge/Python-3.9-blue.svg)](./.python-version)
 [![Flask](https://img.shields.io/badge/Flask-2.3-black.svg)](https://flask.palletsprojects.com/)
 [![uv](https://img.shields.io/badge/uv-managed-6f42c1.svg)](https://docs.astral.sh/uv/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
 
-一个面向量化研究与交易可视化展示的期权热力图项目：基于 Flask 构建 Web 界面，使用 [Finnhub](https://finnhub.io/docs/api) 获取市场数据，并将期权链标准化为可复用的本地快照，再生成多维热力图用于快速研判市场结构。
+基于 Flask 的期权热力图分析工具，使用 [Finnhub](https://finnhub.io/docs/api) 作为数据源，支持按到期日和执行价展示期权链的持仓、成交量和隐含波动率分布。
 
-这个项目覆盖了一个完整的小型数据产品链路：数据接入、清洗标准化、缓存落盘、图表生成、错误处理、测试补齐，以及面向 GitHub 开源展示的工程化交付。
+中文优先阅读，英文说明见文末。
 
 ## 目录
 
@@ -18,7 +16,6 @@
 - [快速开始](#快速开始)
 - [配置说明](#配置说明)
 - [使用方式](#使用方式)
-- [GitHub Dependents 识别](#github-dependents-识别)
 - [API 接口](#api-接口)
 - [常见问题](#常见问题)
 - [开发与测试](#开发与测试)
@@ -28,14 +25,14 @@
 ## 项目亮点
 
 - 使用官方 [`finnhub-python`](https://github.com/Finnhub-Stock-API/finnhub-python) 客户端获取期权链、现价和公司资料
-- 构建了从第三方金融 API 到本地标准化快照再到可视化前端的完整链路
-- 支持三种核心分析视图：
+- 基于本地标准化快照生成热力图，避免前端直接耦合第三方 API
+- 支持三种图表维度：
   - `Direction × Open Interest`
   - `Volume`
   - `Implied Volatility`
-- 默认使用 `uv` 管理环境和依赖，保持现代化且轻量的 Python 工作流
-- 保持简单直接的 Flask Web 界面，适合快速分析、演示和二次开发
-- 失败时返回明确错误，不静默回退到其他数据源，便于排查权限和网络问题
+- 默认使用 `uv` 管理环境和依赖
+- 保持简单直接的 Flask Web 界面，适合快速分析和二次开发
+- 失败时返回明确错误，不静默回退到其他数据源
 
 ## 界面预览
 
@@ -67,12 +64,6 @@ export FINNHUB_API_KEY="your_finnhub_key"
 ```bash
 uv sync
 ```
-
-说明：
-
-- `uv` 是本项目唯一推荐的安装与运行方式
-- 根目录中的 `requirements.txt` 仅用于 GitHub Dependency Graph / Dependents 识别
-- 不建议使用 `pip install -r requirements.txt` 作为日常开发工作流
 
 ### 4. 启动服务
 
@@ -129,30 +120,6 @@ uv run python utils_option.py fetch AAPL 4
 
 - `{SYMBOL}_options_data.json`
 - `{SYMBOL}_options_data.csv`
-
-## GitHub Dependents 识别
-
-为了提高 GitHub 对本仓库依赖关系的识别概率，仓库额外保留了一个根目录 `requirements.txt`：
-
-- 它是由 `uv` 从 `uv.lock` 导出的镜像文件
-- 目标是帮助 GitHub 的 Python dependency graph 更稳定地识别 `finnhub-python`
-- 它不是本项目的主依赖入口，不改变 `uv sync` / `uv run ...` 的主工作流
-
-当你修改了 `pyproject.toml` 或更新了 `uv.lock` 后，需要重新导出该文件：
-
-```bash
-uv export --frozen --no-dev --format requirements.txt --no-hashes --no-annotate --output-file requirements.txt
-```
-
-仓库还包含一个 GitHub Actions 校验工作流，会检查 `requirements.txt` 是否和当前锁文件保持同步。
-
-如果你是仓库管理员，建议同时在 GitHub 仓库设置中确认开启：
-
-- Dependency graph
-- GitHub Actions
-- Automatic dependency submission
-
-这样 GitHub 才能在静态识别之外补全更多传递依赖。
 
 ## API 接口
 
@@ -235,13 +202,6 @@ export FINNHUB_API_KEY="your_finnhub_key"
 uv run pytest -q
 ```
 
-### 校验 `requirements.txt` 是否与 `uv` 同步
-
-```bash
-uv export --frozen --no-dev --format requirements.txt --no-hashes --no-annotate --output-file requirements.txt
-git diff --exit-code requirements.txt
-```
-
 ### 代码约定
 
 - 统一使用 `uv` 管理依赖
@@ -261,7 +221,6 @@ Options_Heatmap_Analysis_Tool/
 ├── assets/                 # README 预览图
 ├── tests/                  # 测试用例
 ├── pyproject.toml          # 项目依赖定义
-├── requirements.txt        # GitHub Dependency Graph 识别镜像
 ├── uv.lock                 # uv 锁文件
 └── LICENSE
 ```
@@ -274,7 +233,7 @@ Options_Heatmap_Analysis_Tool/
 
 ## English
 
-A compact but end-to-end options visualization project powered by [Finnhub](https://finnhub.io/docs/api), built with Flask, and managed with `uv`. It covers the full path from market data ingestion and normalization to local caching, chart rendering, and developer-friendly delivery.
+This is a Flask-based options heatmap tool powered by [Finnhub](https://finnhub.io/docs/api) and managed with `uv`.
 
 ### Quick Start
 
@@ -286,8 +245,6 @@ uv sync
 uv run python app.py
 ```
 
-`requirements.txt` is kept only as a GitHub dependency-graph mirror generated from `uv`, not as the primary install workflow.
-
 If port `5000` is already occupied:
 
 ```bash
@@ -297,7 +254,6 @@ PORT=5001 uv run python app.py
 ### Core Capabilities
 
 - Fetches option chains, quotes, and company profiles from Finnhub
-- Builds a reusable local snapshot layer between external APIs and the UI
 - Normalizes snapshots into local JSON / CSV files
 - Generates heatmaps for direction x open interest, volume, and implied volatility
 - Exposes a small Flask API for loading data and rendering charts
